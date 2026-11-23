@@ -1,5 +1,6 @@
 """Turns a time range into a vertical clip: 9:16 layout, bouncy word captions, hook title, cover."""
 import re
+import os
 import shutil
 import subprocess
 import tempfile
@@ -81,7 +82,8 @@ def install_fonts():
 LAYOUTS = {"blur": "Full frame + blurred fill", "zoom": "Zoomed in + blurred fill", "crop": "Fill the screen (centre crop)",
            "left": "Fill the screen, keep the left side", "right": "Fill the screen, keep the right side",
            "fit": "Full frame on black", "split": "Split screen: left half on top, right half below (two people)",
-           "gameplay": "Gameplay fills the screen, facecam in the corner"}
+           "gameplay": "Gameplay fills the screen, facecam in the corner",
+           "webcam_top": "Webcam above gameplay", "gameplay_top": "Gameplay above webcam"}
 _FILLS = ("crop", "left", "right", "gameplay")      # layouts where the picture covers the whole frame
 
 
@@ -132,7 +134,7 @@ def geometry(src_w, src_h, layout):
     return layout, fg_h, max(230, top - 190), min(1640, top + fg_h + 180)
 
 
-def _hook_events(hook, dur, y):
+def _hook_events(hook, dur, y, width=W):
     """The heading: dark text in a white rounded box that fits it, on one line or two balanced ones."""
     f, size = _Font.get(HOOK["font"]), HOOK["size"]
     words = hook.split()
@@ -148,7 +150,7 @@ def _hook_events(hook, dur, y):
         widest = max(f.width(l, size) for l in lines)
     line_h = f.em(size) * 1.16
     bw, bh = widest + 2 * HOOK["pad_x"], line_h * len(lines) + 2 * HOOK["pad_y"]
-    x0, y0, r = (W - bw) / 2, y - bh / 2, min(HOOK["radius"], bh / 2)
+    x0, y0, r = (width - bw) / 2, y - bh / 2, min(HOOK["radius"], bh / 2)
     x1, y1 = x0 + bw, y0 + bh
     n = lambda v: f"{v:.0f}"                                                         # noqa: E731
     box = (f"m {n(x0 + r)} {n(y0)} l {n(x1 - r)} {n(y0)} b {n(x1)} {n(y0)} {n(x1)} {n(y0)} {n(x1)} {n(y0 + r)} "
@@ -163,7 +165,8 @@ def _hook_events(hook, dur, y):
     return ev
 
 
-def build_ass(words, start, end, hook, style_name, highlight, hook_y, cap_y) -> str:
+def build_ass(words, start, end, hook, style_name, highlight, hook_y, cap_y, width=W, height=H) -> str:
+    W, H = width, height
     st = STYLES.get(style_name, STYLES["bounce"])
     words = [dict(w, s=w["s"] - CAPTION_LEAD, e=w["e"] - CAPTION_LEAD) for w in words]
     strong = {_key(h) for h in highlight if _key(h)}
@@ -183,7 +186,7 @@ Style: Hook,{HOOK['font']},{HOOK['size']},&H00{HOOK['ink']},&H00{HOOK['ink']},&H
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     dur = end - start
-    ev = _hook_events(_clean(hook), dur, hook_y)
+    ev = _hook_events(_clean(hook), dur, hook_y, width=W)
     f = _Font.get(st["font"])
     inside = [dict(w, w=_clean(w["w"])) for w in words if w["s"] >= start - 0.05 and w["s"] < end]
     inside = sorted((w for w in inside if w["w"]), key=lambda w: w["s"])
@@ -239,7 +242,31 @@ PIP_W = 380            # how wide the facecam is in the 1080-wide frame
 PIP_MARGIN = 26
 
 
-def _filter(layout, fg_h, facecam=None):
+def _filter(layout, fg_h, facecam=None, width=W, height=H, split_ratio=0.35, source_size=None):
+    W, H = width, height
+    if layout in ("webcam_top", "gameplay_top"):
+        if not facecam:
+            layout = "crop"
+        else:
+            fx, fy, fw, fh = (int(v) for v in facecam)
+            ch = max(2, round(H * split_ratio / 2) * 2)
+            gh = H - ch
+            # Use the largest rectangular part of the game that excludes the embedded webcam.
+            # Pixels hidden behind the webcam cannot be recovered.
+            game_crop = ""
+            if source_size:
+                sw, sh = source_size
+                rects = [(0, 0, fx, sh), (fx + fw, 0, sw - fx - fw, sh),
+                         (0, 0, sw, fy), (0, fy + fh, sw, sh - fy - fh)]
+                gx, gy, gw, gh_src = max(rects, key=lambda r: max(0, r[2]) * max(0, r[3]))
+                if gw >= 16 and gh_src >= 16:
+                    game_crop = f"crop={gw}:{gh_src}:{gx}:{gy},"
+            stack = "[cam][game]" if layout == "webcam_top" else "[game][cam]"
+            return (f"[0:v]fps={config.OUT_FPS},split=2[c][g];"
+                    f"[c]crop={fw}:{fh}:{fx}:{fy},scale={W}:{ch}:force_original_aspect_ratio=increase,"
+                    f"crop={W}:{ch},setsar=1[cam];"
+                    f"[g]{game_crop}scale={W}:{gh}:force_original_aspect_ratio=increase,"
+                    f"crop={W}:{gh},setsar=1[game];{stack}vstack[v0];")
     if layout == "gameplay" and facecam:
         # The game fills the screen, and the webcam sits in the top corner of it, so a viewer sees
         # the play and the face at the same time.
@@ -258,7 +285,8 @@ def _filter(layout, fg_h, facecam=None):
     if layout == "right":
         return fill + ":in_w-out_w:0,setsar=1[v0];"
     if layout == "fit":
-        return f"[0:v]fps={config.OUT_FPS},scale={W}:{fg_h},pad={W}:{H}:0:(oh-ih)/2:black,setsar=1[v0];"
+        return (f"[0:v]fps={config.OUT_FPS},scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:black,setsar=1[v0];")
     if layout == "split":
         half = f"scale={W}:{H // 2}:force_original_aspect_ratio=increase,crop={W}:{H // 2}"
         return (f"[0:v]fps={config.OUT_FPS},split=2[l][r];[l]crop=iw/2:ih:0:0,{half}[t];"
@@ -287,12 +315,26 @@ def render_clip(src: Path, out_dir: Path, name: str, clip: dict, words: list, sr
     out_dir.mkdir(parents=True, exist_ok=True)
     start, end = clip["start"], clip["end"]
     layout, fg_h, hook_y, cap_y = geometry(src_w, src_h, clip.get("layout", "blur"))
+    # These two layouts are valid even for a square source.
+    if clip.get("layout") in ("webcam_top", "gameplay_top"):
+        layout = clip["layout"]
+        cap_y, hook_y = 1240, 120
+    landscape = clip.get("aspect", "9:16") == "16:9"
+    canvas_w, canvas_h = (1920, 1080) if landscape else (W, H)
+    if landscape:
+        fg_h, hook_y, cap_y = canvas_h, 140, 900
+        if layout not in ("webcam_top", "gameplay_top", "gameplay"):
+            layout = "crop" if layout in ("crop", "left", "right") else "fit"
     face = clip.get("facecam")
+    if face:
+        face = validate_facecam(face, src_w, src_h)
+    if layout in ("webcam_top", "gameplay_top") and not face:
+        layout = "crop"  # report the actual gameplay-only fallback, not a webcam layout
     if layout == "gameplay" and not (face and len(face) == 4):
         layout = "crop"     # no webcam found: the game fills the screen, which is still the right shape
     hook_y = _hook_y(layout, hook_y, face)
     ass = build_ass(words if clip.get("captions", True) else [], start, end, clip.get("hook", ""), clip.get("style", "bounce"),
-                    clip.get("highlight_words", []), hook_y, cap_y)
+                    clip.get("highlight_words", []), hook_y, cap_y, width=canvas_w, height=canvas_h)
     # The clip is made in a short work folder and moved into place afterwards. The caption step of ffmpeg cannot
     # open files whose full path is longer than 260 characters on Windows, which a data folder deep inside other
     # folders easily reaches. Inside the work folder every name is short and relative (a drive colon would also
@@ -301,25 +343,46 @@ def render_clip(src: Path, out_dir: Path, name: str, clip: dict, words: list, sr
     try:
         # The title and description are also written into the file itself, for any place that reads them from it.
         meta = {"title": clip.get("title") or "", "description": clip.get("description") or "", "comment": clip.get("description") or ""}
-        return _render_in(work, src, out_dir, name, start, end, layout, fg_h, ass, face=face, meta=meta)
+        quality = int(clip.get("quality", 720))
+        quality = min(1080, max(360, quality)) // 2 * 2
+        ow, oh = (round(quality * 16 / 9 / 2) * 2, quality) if landscape else (quality, round(quality * 16 / 9 / 2) * 2)
+        out = _render_in(work, src, out_dir, name, start, end, layout, fg_h * oh / canvas_h, ass,
+                         face=face, meta=meta, width=ow, height=oh,
+                         split_ratio=min(0.6, max(0.2, float(clip.get("split_ratio", 0.35)))), source_size=(src_w, src_h))
+        return dict(out, aspect="16:9" if landscape else "9:16", width=ow, height=oh)
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
 
-def _render_in(work: Path, src: Path, out_dir: Path, name: str, start, end, layout, fg_h, ass: str, face=None, meta=None) -> dict:
+def validate_facecam(face, width, height):
+    """A crop must be finite and completely inside the decoded source frame."""
+    import math
+    if not isinstance(face, (list, tuple)) or len(face) != 4:
+        raise ValueError("The webcam crop needs x, y, width and height.")
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in face):
+        raise ValueError("The webcam crop must contain finite numbers.")
+    x, y, w, h = (int(v) for v in face)
+    if x < 0 or y < 0 or w < 16 or h < 16 or x + w > width or y + h > height:
+        raise ValueError("The webcam crop must fit inside the source video.")
+    return [x, y, w, h]
+
+
+def _render_in(work: Path, src: Path, out_dir: Path, name: str, start, end, layout, fg_h, ass: str, face=None, meta=None,
+               width=W, height=H, split_ratio=0.35, source_size=None) -> dict:
     global _qsv_ok
     (work / f"{name}.ass").write_text(ass, encoding="utf-8")
     (work / "f").mkdir()
     for f in config.FONTS_DIR.glob("*.ttf"):
         shutil.copyfile(f, work / "f" / f.name)
-    fc = _filter(layout, fg_h, face) + f"[v0]ass={name}.ass:fontsdir=f[v]"
-    base = ["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.2f}", "-t", f"{end - start:.2f}", "-i", str(src),
+    fc = _filter(layout, max(2, round(fg_h / 2) * 2), face, width, height, split_ratio, source_size) + f"[v0]ass={name}.ass:fontsdir=f[v]"
+    threads = max(1, min(8, int(os.environ.get("PEAKCUT_RENDER_THREADS", "2"))))
+    base = ["ffmpeg", "-y", "-v", "error", "-filter_complex_threads", str(threads), "-ss", f"{start:.2f}", "-t", f"{end - start:.2f}", "-i", str(src),
             "-filter_complex", fc, "-map", "[v]", "-map", "0:a:0", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
             "-c:a", "aac", "-b:a", "160k", "-ar", "48000"]
     for k, v in (meta or {}).items():
         if v:
             base += ["-metadata", f"{k}={v}"]
-    base += ["-movflags", "+faststart", "-pix_fmt"]
+    base += ["-threads", str(threads), "-movflags", "+faststart", "-pix_fmt"]
     encoders = []
     if _qsv_ok is not False:
         encoders.append(("qsv", ["nv12", "-c:v", "h264_qsv", "-global_quality", "23", "-preset", "fast"]))

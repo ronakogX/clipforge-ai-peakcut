@@ -19,9 +19,8 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 # minutes, with a clear message, instead of each one waiting to fail. Then the next link simply tries again.
 YT_PAUSE = 600
 _yt_refused_until = 0.0
-YT_BLOCKED = ("YouTube isn't letting PeakCut download videos right now. Upload the video file instead, or use a "
-              "Twitch or Kick link. An admin can fix this by adding YouTube cookies under Settings, Connected apps. "
-              "YouTube links will be tried again in a few minutes.")
+YT_BLOCKED = ("YouTube is refusing media access. Upload an authorized export of your video instead. "
+              "CLIPFORGE does not bypass sign-in, bot checks or platform restrictions.")
 _BOT_CHECK = re.compile(r"not a bot|confirm you.?re not|sign in to confirm(?! your age)", re.I)
 
 
@@ -97,8 +96,8 @@ class _Quiet:
 
 
 def cookie_opts() -> dict:
-    """The YouTube cookies an admin saved (Settings, Connected apps), if any. yt-dlp only sends them to YouTube."""
-    return {"cookiefile": str(config.YT_COOKIES)} if config.YT_COOKIES.is_file() else {}
+    """Browser cookies must not be used to work around platform access restrictions."""
+    return {}
 
 
 def _ydl(opts):

@@ -32,10 +32,16 @@ def delete_clip(jid: str, cid: str) -> bool:
     job["clips"] = [c for c in job["clips"] if c["id"] != cid]
     jobs.save(job)
     d = Path(job["dir"])
-    for name in (clip.get("file"), clip.get("cover")):
+    variants = clip.get("variants") or []
+    names = [clip.get("file"), clip.get("cover")]
+    for variant in variants:
+        names.extend([variant.get("file"), variant.get("cover")])
+    for name in names:
         if name:
             (d / "clips" / Path(str(name)).name).unlink(missing_ok=True)
-    for stem in {cid, Path(str(clip.get("file") or cid)).stem}:     # the captions and the notes kept beside the clip
+    stems = {cid, Path(str(clip.get("file") or cid)).stem}
+    stems.update(Path(str(v.get("file") or cid)).stem for v in variants)
+    for stem in stems:     # the captions and the notes kept beside the clip
         for ext in ("ass", "json"):
             (d / "clips" / f"{stem}.{ext}").unlink(missing_ok=True)
     src = clip.get("src")

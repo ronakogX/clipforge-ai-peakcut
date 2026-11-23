@@ -147,6 +147,11 @@ def _plausible(x0, y0, x1, y1, still, light, game, share=STILL_SHARE):
     moving = float(np.median(inside))
     if moving > cut:
         return None                    # it changes with the game: it is the game
+    # Compressed dark footage has little movement everywhere. The absolute floor above can
+    # otherwise make its compression blocks look like webcams. Without a visual-model hint,
+    # require a real difference from the surrounding game as well as straight borders.
+    if share == STILL_SHARE and game > 0.5 and moving > max(0.5, STILL_FRAC * game):
+        return None
     if float((inside > cut).mean()) > share:
         return None                    # a good part of it moves: the game is showing through
     if float(light[b:d, a:c].mean()) < 0.30 * float(light.mean()):

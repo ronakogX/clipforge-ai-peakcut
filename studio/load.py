@@ -8,6 +8,7 @@ import shutil
 import sys
 import threading
 import time
+from pathlib import Path
 
 from . import config
 
@@ -20,6 +21,35 @@ _force = None            # tests only: pretend the server is busy (True) or free
 _started = False
 _lock = threading.Lock()
 _mach = None             # macOS: libSystem and this machine's Mach host port, looked up once
+CGROUP_ROOT = Path("/sys/fs/cgroup")
+
+
+def _container_cpu_times():
+    """CPU time relative to this Linux container's quota, not the larger host machine."""
+    try:
+        quota, period = (CGROUP_ROOT / "cpu.max").read_text().split()
+        if quota == "max":
+            return None
+        cores = int(quota) / int(period)
+        if cores <= 0:
+            return None
+        if hasattr(os, "sched_getaffinity"):
+            cores = min(cores, len(os.sched_getaffinity(0)))
+        values = dict(line.split() for line in (CGROUP_ROOT / "cpu.stat").read_text().splitlines())
+        return int(values["usage_usec"]), time.monotonic() * 1e6 * cores
+    except (OSError, ValueError, KeyError, ZeroDivisionError):
+        return None
+
+
+def _container_ram_free_gb():
+    try:
+        limit = (CGROUP_ROOT / "memory.max").read_text().strip()
+        if limit == "max":
+            return None
+        used = int((CGROUP_ROOT / "memory.current").read_text())
+        return max(0, int(limit) - used) / 1e9
+    except (OSError, ValueError):
+        return None
 
 
 def _mach_numbers(flavor: int, words: int, call: str):
@@ -57,6 +87,9 @@ def _cpu_times():
         c = _mach_numbers(3, 4, "host_statistics")
         total = c[0] + c[1] + c[2] + c[3]
         return total - c[2], total
+    container = _container_cpu_times()
+    if container is not None:
+        return container
     with open("/proc/stat", encoding="ascii") as f:
         v = [int(x) for x in f.readline().split()[1:9]]
     return sum(v) - v[3] - v[4], sum(v)                                    # everything except idle and waiting on disk
@@ -82,7 +115,9 @@ def _ram_free_gb() -> float:
     with open("/proc/meminfo", encoding="ascii") as f:
         for line in f:
             if line.startswith("MemAvailable:"):
-                return int(line.split()[1]) / 1e6
+                available = int(line.split()[1]) / 1e6
+                container = _container_ram_free_gb()
+                return min(available, container) if container is not None else available
     return 99.0
 
 
@@ -100,7 +135,7 @@ def _watch():
                 last = now
                 if total > 0:
                     # smoothed over a few seconds, so one short spike neither holds people up nor lets too much in
-                    _state["cpu"] = 0.55 * _state["cpu"] + 0.45 * (100.0 * used / total)
+                    _state["cpu"] = 0.55 * _state["cpu"] + 0.45 * max(0, min(100, 100.0 * used / total))
             except Exception:  # noqa: BLE001
                 pass
         try:

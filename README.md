@@ -1,4 +1,16 @@
-# PeakCut
+# CLIPFORGE AI · PeakCut rebuild
+
+This repository is the CLIPFORGE adaptation of the MIT-licensed PeakCut project.
+**Start with [CLIPFORGE.md](CLIPFORGE.md)** for phone access, private Codespaces setup,
+$0 usage safeguards, verified behavior and current limitations. It adds native 9:16 / 16:9
+export, two synchronized stacked gaming layouts, webcam correction and real output resolutions.
+YouTube links are metadata-only until a permitted media adapter is connected; use an authorized
+file export. No browser cookies are imported to bypass restrictions.
+
+The upstream documentation below describes PeakCut; its broad feature descriptions do not
+override the CLIPFORGE limitations and hosting requirements above.
+
+# PeakCut (upstream)
 
 Turn long videos and live streams into captioned vertical clips, ready to post. Free and open source: run it on
 your own computer or server, with your own AI key.

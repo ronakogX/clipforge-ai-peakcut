@@ -108,7 +108,8 @@ _by_user: dict = {}                       # user -> {job id: job}: listing one p
 _lock = threading.RLock()
 on_clip_ready: list = []   # callbacks (job, clip), run once when a clip first finishes
 
-DEFAULTS = {"max_clips": 6, "min_len": 15, "max_len": 60, "style": "bounce", "layout": "blur", "quality": 720,
+DEFAULTS = {"max_clips": 6, "min_len": 15, "max_len": 60, "style": "bounce", "layout": "webcam_top", "quality": 720,
+            "aspect": "9:16", "split_ratio": 0.35,
             "range_start": None, "range_end": None, "captions": True, "hook_text": "", "description_text": "",
             "lang": "en"}   # lang: the language spoken
 
@@ -137,6 +138,13 @@ def clean_options(options) -> dict:
             v = v if v in render.STYLES else DEFAULTS["style"]
         elif k == "layout":
             v = v if v in render.LAYOUTS else DEFAULTS["layout"]
+        elif k == "aspect":
+            if v not in ("9:16", "16:9"):
+                raise ValueError("Choose 9:16 or 16:9.")
+        elif k == "split_ratio":
+            v = float(v)
+            if not math.isfinite(v) or not 0.2 <= v <= 0.6:
+                raise ValueError("The webcam share must be between 20% and 60%.")
         elif k == "lang":
             v = v if fetch_model.known(v) else DEFAULTS["lang"]
         else:                                    # range_start, range_end: seconds into the video
@@ -375,6 +383,11 @@ def request_render(jid, cid, changes: dict):
     job = _jobs[jid]
     clip = next(c for c in job["clips"] if c["id"] == cid)
     new = dict(clip)
+    new.update(clean_options({k: changes[k] for k in ("aspect", "quality", "split_ratio") if k in changes}))
+    if "facecam" in changes:
+        new["facecam"] = render.validate_facecam(changes["facecam"], job["width"], job["height"]) if changes["facecam"] else None
+        new["webcam_region"] = dict(zip(("x", "y", "width", "height"),
+            [v / job["width" if i % 2 == 0 else "height"] for i, v in enumerate(new["facecam"])])) if new["facecam"] else None
     if "captions" in changes:
         new.update(clean_options({"captions": changes["captions"]}))
     for k in ("start", "end"):
@@ -465,6 +478,13 @@ def render_one(job, clip, words):
         local = dict(clip, start=clip["start"] - off, end=clip["end"] - off, hook=roman.to_roman(clip.get("hook") or ""))
         near = _caption_words(job, clip, words, off) if clip.get("captions", True) else []
         out = render.render_clip(src, d / "clips", clip["id"], local, near, job["width"], job["height"])
+        variants = []
+        if local.get("layout") in ("webcam_top", "gameplay_top") and local.get("facecam"):
+            variants.append(dict(out))
+            other = "gameplay_top" if local["layout"] == "webcam_top" else "webcam_top"
+            variants.append(render.render_clip(src, d / "clips", clip["id"] + "_" + other,
+                            dict(local, layout=other), near, job["width"], job["height"]))
+        out["variants"] = variants
         clip.update(out, status="done", version=clip.get("version", 0) + 1, error=None)
         post = {k: clip[k] for k in ("title", "description", "hashtags", "hook", "start", "end", "score")}
         (d / "clips" / f"{clip['id']}.json").write_text(json.dumps(post, indent=1), encoding="utf-8")
@@ -752,7 +772,8 @@ def _run_job(job):
             render_one(job, clip, words_now)
 
     cpus = os.cpu_count() or 4
-    renders = ThreadPoolExecutor(2 if cpus < 8 else min(6, cpus // 6))  # more clips made at once on a bigger machine
+    render_workers = int(os.environ.get("PEAKCUT_RENDER_WORKERS") or (2 if cpus < 8 else min(6, cpus // 6)))
+    renders = ThreadPoolExecutor(max(1, min(6, render_workers)))
     futures = []
     step = BLOCK * 16000 if span > PROGRESSIVE_FROM else hi - lo
     blocks = [(x, min(hi, x + step)) for x in range(lo, hi, step)] or [(lo, hi)]
@@ -857,6 +878,7 @@ def _run_job(job):
         for c in found:
             c.update(id=f"clip{len(job['clips']) + 1:02d}", start=round(c["start"] + shift, 2),
                      end=round(c["end"] + shift, 2), style=o["style"], layout=o["layout"],
+                     aspect=o.get("aspect", "9:16"), quality=o.get("quality", 720), split_ratio=o.get("split_ratio", 0.35),
                      captions=o.get("captions", True), status="queued", version=0)
             if o.get("hook_text"):        # the person's own big text, on every clip, in place of the AI's
                 c["hook"] = o["hook_text"]
@@ -866,7 +888,7 @@ def _run_job(job):
                 hashtags.apply(c, words, job["title"], job["uploader"], game)
             # Only the gameplay layout uses a webcam, so it is only looked for then, and only once: a
             # stream with no webcam is not looked for again on every clip of it.
-            if o["layout"] == "gameplay" and face is False:
+            if o["layout"] in ("gameplay", "webcam_top", "gameplay_top") and face is False:
                 face = _facecam(job)
             if face:
                 c["facecam"] = face

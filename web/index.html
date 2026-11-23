@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PeakCut</title>
+<title>CLIPFORGE AI · Powered by PeakCut</title>
 <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -826,7 +826,7 @@ dialog[open]{animation:fadein .16s ease}
 <body>
 <div class="app" id="app">
   <aside class="side" aria-label="Sidebar">
-    <div class="side-head"><img class="logo" src="/brand/logo-light.svg" alt="PeakCut"><img class="mark" src="/brand/favicon.svg" alt="PeakCut">
+    <div class="side-head"><img class="logo" src="/brand/clipforge.svg" alt="CLIPFORGE AI, powered by PeakCut"><img class="mark" src="/brand/favicon.svg" alt="CLIPFORGE AI, powered by PeakCut">
       <button class="icon-btn collapse" data-act="collapse" id="collapseBtn" aria-label="Collapse sidebar"></button></div>
     <nav class="nav" id="nav" aria-label="Main"></nav>
     <div class="side-foot" id="foot"></div>
@@ -947,7 +947,7 @@ function startTour() {
   if (S.view !== "overview") go("overview");
   // sel: what the step points at.  side: it lives in the sidebar (opened for the step on phones).  dock: where the card sits on phones.
   const steps = [
-    {t: "Welcome to PeakCut", x: "Long videos and live streams go in, captioned vertical clips come out. Here is a quick look around.",
+    {t: "Welcome to CLIPFORGE AI", x: "Powered by PeakCut. Upload a video you own or are allowed to use. Get captioned vertical or landscape clips. Here is a quick look around.",
      chips: [["link", "Paste a link"], ["scissors", "Get clips", 1], ["radio", "Live streams"], ["send", "Post them"]]},
     {t: "Start with any video", x: "Paste a YouTube, Twitch or Kick link here, or upload a file. PeakCut finds the best moments and makes each one a short with captions.",
      sel: "#addform", dock: "bottom", chips: [["link", "YouTube"], ["link", "Twitch"], ["link", "Kick"], ["up", "Upload", 1]]},
@@ -1370,7 +1370,7 @@ function setTab(t) {
 function drawAdd(variant) {
   const c = creator();
   $("#add").innerHTML = `<form class="composer ${variant === "hero" ? "big" : "compact"}" id="addform">
-    <div class="composer-input">${ic("link")}<input id="url" placeholder="Paste a YouTube, Twitch or Kick video link" autocomplete="off" aria-label="Video link"></div>
+    <div class="composer-input">${ic("link")}<input id="url" placeholder="Paste a permitted Twitch or Kick video link, or upload your video" autocomplete="off" aria-label="Video link"></div>
     <div class="att" id="att"><div><div class="att-in" id="attIn"></div></div></div>
     <div class="composer-bar">
       <button type="button" class="chip" data-act="pickfile">${ic("up")}Upload video</button>
@@ -1393,9 +1393,11 @@ function drawAdd(variant) {
       <div class="ob"><div class="ot cap-head"><span id="o_style_label">Caption style</span>
         <label><input type="checkbox" id="o_captions" data-caption-toggle ${c?.captions === false ? "" : "checked"}>Generate captions</label></div>
         ${choice("o_style", Object.entries(S.status.styles).map(([k, v]) => ({v:k, label:v, prev:capPrev(k)})), c?.style ?? "bounce", c?.captions === false)}</div>
-      <div class="ob"><div class="ot">Layout</div>${choice("o_layout", Object.entries(S.status.layouts).map(([k, v]) => ({v:k, label:LAYOUT_SHORT[k] || v, title:v, prev:`<span class="lay-prev ${esc(k)}"><span class="ph"><i></i></span></span>`})), c?.layout ?? "blur")}</div>
+      <div class="ob"><div class="ot">Layout</div>${choice("o_layout", Object.entries(S.status.layouts).map(([k, v]) => ({v:k, label:LAYOUT_SHORT[k] || v, title:v, prev:`<span class="lay-prev ${esc(k)}"><span class="ph"><i></i></span></span>`})), c?.layout ?? "webcam_top")}</div>
+      <div class="ob"><label class="f">Output shape<select id="o_aspect"><option value="9:16">9:16 · Shorts / Reels / TikTok</option><option value="16:9">16:9 · Landscape</option></select></label><p class="sub">Stacked layouts create both orders from the same moment. No webcam means gameplay only.</p></div>
       <div class="ob"><div class="ot">Video quality</div><input type="hidden" id="o_quality" value="720"><div class="seg" role="group" aria-label="Video quality">
-        <button type="button" data-seg="o_quality" data-v="720" aria-pressed="true">720p<small>Fast</small></button>
+        <button type="button" data-seg="o_quality" data-v="360" aria-pressed="false">360p<small>Draft · fastest</small></button>
+        <button type="button" data-seg="o_quality" data-v="720" aria-pressed="true">720p<small>Balanced</small></button>
         <button type="button" data-seg="o_quality" data-v="1080" aria-pressed="false">1080p<small>Sharper, about 2x slower</small></button></div></div>
       <div class="ob"><div class="ot">Part of the video</div><div class="range">
         <label>From<input id="o_from" type="number" min="0" placeholder="start" aria-label="From minute">min</label>${ic("arrowr")}
@@ -1403,7 +1405,7 @@ function drawAdd(variant) {
     </div></div></form>`;
   drawAtt();
 }
-const LAYOUT_SHORT = {blur:"Blurred fill", zoom:"Zoomed in", crop:"Fill screen", left:"Keep left", right:"Keep right", fit:"Black bars", split:"Split screen", gameplay:"Gameplay + facecam"};
+const LAYOUT_SHORT = {webcam_top:"Webcam top (both)", gameplay_top:"Gameplay top (both)", blur:"Blurred fill", zoom:"Zoomed in", crop:"Fill screen", left:"Keep left", right:"Keep right", fit:"Black bars", split:"Split screen", gameplay:"Gameplay + facecam"};
 /* The language spoken in the video picks which speech model writes the transcript. Languages other than English
    need their model downloaded once (Settings → Speech models). */
 const LANG_NATIVE = {ar:"العربية"};
@@ -1474,7 +1476,7 @@ document.addEventListener("keydown", e => {
 const targetCreator = () => creatorId() || $("#o_creator")?.value || "";
 function jobOptions() {
   const n = id => { const v = $(id).value; return v === "" ? null : Number(v); };
-  const o = {max_clips:n("#o_max"), min_len:n("#o_min"), max_len:n("#o_maxlen"), captions:$("#o_captions").checked, style:$("#o_style").value, layout:$("#o_layout").value, quality:n("#o_quality"),
+  const o = {max_clips:n("#o_max"), min_len:n("#o_min"), max_len:n("#o_maxlen"), captions:$("#o_captions").checked, style:$("#o_style").value, layout:$("#o_layout").value, quality:n("#o_quality"), aspect:$("#o_aspect").value,
     hook_text:$("#o_hook").value.trim(), description_text:$("#o_desc").value.trim(), lang:$("#o_lang")?.value || "en"};
   if (n("#o_from") !== null) o.range_start = n("#o_from") * 60;
   if (n("#o_to") !== null) o.range_end = n("#o_to") * 60;
@@ -1546,7 +1548,7 @@ function drawAtt() {
     if (f && !f.dur) { f.dur = v.duration; const th = v.parentElement; if (!th.querySelector(".du")) th.insertAdjacentHTML("beforeend", `<span class="du">${fmtLen(f.dur)}</span>`); }
   }, {once: true}));
   $("#att")?.classList.toggle("has", !!h);
-  const u = $("#url"); if (u) u.placeholder = A.links.length || A.files.length ? "Paste another link" : "Paste a YouTube, Twitch or Kick video link";
+  const u = $("#url"); if (u) u.placeholder = A.links.length || A.files.length ? "Paste another link" : "Paste a permitted Twitch or Kick video link, or upload your video";
   const b = $("#goBtn");
   if (b) { b.disabled = A.busy;
     const k = A.files.length + A.links.filter(l => l.state === "ok").length;
@@ -1681,7 +1683,7 @@ async function makeClips() {
     return;
   }
   if (!canGo(A)) {
-    toast(A.note || "Paste a YouTube, Twitch or Kick video link, or add a video file first.", "bad");
+    toast(A.note || "Paste a permitted Twitch or Kick video link, or upload your video, or add a video file first.", "bad");
     $("#url")?.focus();
     return;
   }
@@ -1729,7 +1731,7 @@ function clipHtml(j, c) {
   const key = `c:${j.id}:${c.id}`, busyClip = c.status === "queued" || c.status === "rendering";
   return `<article class="clip ${sel().has(key) ? "picked" : ""}">
     <button class="shot" data-act="openclip" ${a} aria-label="Open clip: ${esc(c.title || c.hook)}">${body}
-      <span class="badge l ${scoreCls(c.score)}" title="AI score">${c.score || "Hand"}</span><span class="badge r">${fmt(c.end - c.start)}</span></button>
+      <span class="badge l ${scoreCls(c.score)}" title="Internal highlight estimate, not a virality prediction">${c.score || "Hand"}</span><span class="badge r">${fmt(c.end - c.start)}</span></button>
     <div class="clip-body">
       <div class="hook">${esc(c.hook || "Untitled clip")}</div>
       <div class="ttl">${esc(c.title)}</div>
@@ -2187,7 +2189,7 @@ async function drawSettings() {
 }
 async function ytCookiesCard(logo) {
   const st = await api("/api/youtube-cookies").catch(() => null);
-  if (!st) return "";
+  return ""; // Restricted-source cookie imports are not offered in CLIPFORGE.
   const open = S.setupOpen === "ytdl";
   const act = `<button class="btn sm ${st.saved ? "ghost" : "primary"}" data-act="appsetup" data-p="ytdl">${ic("cog")}${st.saved ? "Replace" : "Add cookies"}</button>`
     + (st.saved ? `<button class="btn sm ghost" data-act="ytcookies" data-remove="1">Remove</button>` : "");
@@ -2207,6 +2209,32 @@ async function saveSettings() { const d = {}; $$("#sform [data-s]").forEach(i =>
 
 /* ============================================================ clip editor */
 function openClip(jid, cid) { D.jid = jid; D.cid = cid; D.sig = ""; drawClipDlg(true); $("#clipdlg").showModal(); }
+function setupWebcamCrop(j, c) {
+  const surface = $("#crop-surface"), box = $("#crop-box"), video = $("#crop-source");
+  if (!surface || !box || !j.width || !j.height) return;
+  const fields = [...$$("#clipdlg [data-crop]")];
+  const read = () => fields.map(i => Number(i.value));
+  const draw = () => { const [x,y,w,h] = read(); box.style.display = w && h ? "block" : "none";
+    Object.assign(box.style, {left:x/j.width*100+"%",top:y/j.height*100+"%",width:w/j.width*100+"%",height:h/j.height*100+"%"}); };
+  fields.forEach(i => i.addEventListener("input", draw));
+  $("#crop-enable").onclick = () => { [0,0,Math.round(j.width*.25),Math.round(j.height*.25)].forEach((v,i) => fields[i].value=v); draw(); };
+  video.addEventListener("loadedmetadata", () => { video.currentTime = Math.min(c.start, Math.max(0,video.duration-.1)); }, {once:true});
+  box.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); box.setPointerCapture(e.pointerId);
+    const start = read(), rect = surface.getBoundingClientRect(), px=e.clientX, py=e.clientY, resize=e.target.id === "crop-resize";
+    const move = ev => {
+      let [x,y,w,h] = start, dx=(ev.clientX-px)/rect.width*j.width, dy=(ev.clientY-py)/rect.height*j.height;
+      if (resize) { w=Math.max(16,Math.min(j.width-x,w+dx)); h=Math.max(16,Math.min(j.height-y,h+dy)); }
+      else { x=Math.max(0,Math.min(j.width-w,x+dx)); y=Math.max(0,Math.min(j.height-h,y+dy)); }
+      [x,y,w,h].forEach((v,i) => fields[i].value=Math.round(v)); draw();
+    };
+    const up = () => { box.removeEventListener("pointermove",move); box.removeEventListener("pointerup",up); box.removeEventListener("pointercancel",up); };
+    box.addEventListener("pointermove",move); box.addEventListener("pointerup",up); box.addEventListener("pointercancel",up);
+  });
+  draw();
+}
+
 function drawClipDlg(full) {
   const j = jobOf(D.jid), c = j?.clips.find(x => x.id === D.cid), dlg = $("#clipdlg");
   if (!c) { if (dlg.open) dlg.close(); return; }
@@ -2220,6 +2248,12 @@ function drawClipDlg(full) {
         <div class="job-head" style="margin:0"><div><span class="badge ${scoreCls(c.score)}" style="position:static">${c.judges ? "Words " + c.judges.words + (c.judges.reaction ? " · Reaction " + c.judges.reaction : "") : c.score ? "Score " + c.score : "Clipped by hand"}</span>
           <p class="sub" style="margin-top:8px">${esc(c.reason || "")}</p></div><button class="btn icon ghost" data-act="closedlg" aria-label="Close">${ic("x")}</button></div>
         <h3>On the video</h3>
+        <div class="row" id="clip-variants">${(c.variants || []).map(v => `<a class="btn sm" href="${m}${esc(v.file)}?download=1">Download ${esc(S.status.layouts[v.layout] || v.layout)}</a>`).join("")}</div>
+        <label class="f">Output shape<select data-f="aspect">${opts({"9:16":"9:16 · Vertical", "16:9":"16:9 · Landscape"}, c.aspect || "9:16")}</select></label>
+        <label class="f">Export resolution<select data-f="quality">${opts({360:"360p · Draft",720:"720p · Faster",1080:"1080p · Sharper"}, c.quality || 720)}</select></label>
+        <label class="f">Webcam share (0.2–0.6)<input data-f="split_ratio" type="number" min="0.2" max="0.6" step="0.05" value="${c.split_ratio || 0.35}"></label>
+        <fieldset><legend>Webcam crop</legend>
+        ${j.source?.type === "file" ? `<div id="crop-surface" style="position:relative;aspect-ratio:${j.width}/${j.height};background:#111;overflow:hidden"><video id="crop-source" src="/api/jobs/${j.id}/source" preload="metadata" muted playsinline style="width:100%;height:100%;object-fit:contain"></video><div id="crop-box" tabindex="0" role="group" aria-label="Drag webcam crop, or use fields below" style="position:absolute;border:2px solid #eea86d;touch-action:none;cursor:move"><span style="background:#161616;color:white;font-size:11px">Webcam</span><button id="crop-resize" type="button" aria-label="Resize webcam crop" style="position:absolute;right:-8px;bottom:-8px;width:30px;height:30px;touch-action:none;background:#eea86d;border:2px solid #111;border-radius:50%"></button></div></div><button type="button" class="btn sm" id="crop-enable">Set webcam box</button>` : ""}<p class="sub">Drag the box and its round handle, or adjust the source-pixel values below. Set width and height to 0 for gameplay only.</p><div class="two">${["x","y","width","height"].map((n,i) => `<label class="f">${n}<input data-crop="${i}" type="number" min="0" step="1" value="${c.facecam?.[i] || 0}"></label>`).join("")}</div></fieldset>
         <label class="f">Big text<input data-f="hook" value="${esc(c.hook)}"></label>
         <label class="sw"><input type="checkbox" data-f="captions" data-caption-toggle ${c.captions === false ? "" : "checked"}>Generate captions</label>
         <div class="two"><label class="f">Caption style<select data-f="style" data-caption-style ${c.captions === false ? "disabled" : ""}>${opts(S.status.styles, c.style)}</select></label>
@@ -2241,8 +2275,10 @@ function drawClipDlg(full) {
           ${c.status === "done" ? `<a class="btn" href="${m}${esc(c.file)}?download=1">${ic("down")}Download</a>` : ""}
           <button class="btn" data-act="copy" data-j="${j.id}" data-c="${esc(c.id)}">${ic("copy")}Copy post text</button></div>
       </div></div>`;
+    setupWebcamCrop(j, c);
   } else if (D.sig !== sig) $("#stage").innerHTML = stage;
   D.sig = sig;
+  put($("#clip-variants"), (c.variants || []).map(v => `<a class="btn sm" href="${m}${esc(v.file)}?download=1">Download ${esc(S.status.layouts[v.layout] || v.layout)}</a>`).join(""));
   put($("#dposts"), postPills(c));
 }
 function postText() {   // the post text as it is in the clip editor right now
@@ -2571,6 +2607,8 @@ document.addEventListener("click", async e => {
       const body = {}; $$("#clipdlg [data-f]").forEach(i => {
         body[i.dataset.f] = i.type === "checkbox" ? i.checked : i.type === "number" ? Number(i.value) : i.value;
       });
+      const crop = [...$$("#clipdlg [data-crop]")].map(i => Number(i.value));
+      body.facecam = crop[2] && crop[3] ? crop : null;
       await send(`/api/jobs/${D.jid}/clips/${D.cid}/render`, body); toast("Re-making the clip…", "ok"); return tick();
     }
     if (a === "writetext") {

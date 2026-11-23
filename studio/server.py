@@ -754,6 +754,9 @@ def create_from_link(body: dict = Body(...)):
     url = str(body.get("url", "")).strip()[:500]
     if not media.site_allowed(url):
         raise HTTPException(400, "Paste a full link to a YouTube, Twitch or Kick video.")
+    if media.is_youtube(url):
+        raise HTTPException(400, "YouTube metadata is available, but a permitted media-access adapter is not connected. "
+                            "Upload an authorized export of your own video instead.")
     try:
         media.check_youtube(url)          # YouTube is refusing us right now: say so, rather than queue a job that fails
     except media.YouTubeBlocked as e:
@@ -1134,6 +1137,15 @@ def media_file(jid: str, name: str, download: int = 0):
         if clip:
             save_as = account.clip_title_name(clip, Path(name).stem) + ".mp4"
     return FileResponse(f, filename=save_as if download else None, headers={"Cache-Control": "private, max-age=300"})
+
+
+@app.get("/api/jobs/{jid}/source")
+def source_preview(jid: str):
+    job = _job_or_404(jid)
+    f = Path(job.get("source_path") or "")
+    if job.get("source", {}).get("type") != "file" or not f.is_file():
+        raise HTTPException(404, "The source preview is unavailable. Use the manual crop fields.")
+    return FileResponse(f, headers={"Cache-Control": "private, no-store"})
 
 
 # ================================================================ creators and live recording
@@ -1599,27 +1611,13 @@ def apps_put(request: Request, body: dict = Body(...)):
 @app.get("/api/youtube-cookies")
 def yt_cookies_get(request: Request):
     _admin(request)
-    f = config.YT_COOKIES
-    return {"saved": f.is_file(), "updated": int(f.stat().st_mtime) if f.is_file() else 0}
+    return {"saved": False, "updated": 0, "supported": False}
 
 
 @app.put("/api/youtube-cookies")
 def yt_cookies_put(request: Request, body: dict = Body(...)):
     _admin(request)
-    f, text = config.YT_COOKIES, str(body.get("text") or "")
-    if body.get("remove"):
-        f.unlink(missing_ok=True)
-    else:
-        rows = [l.split("\t") for l in text.splitlines() if l.strip() and not l.startswith("# ")]
-        if len(text) > 1_000_000 or not any(len(r) == 7 and "youtube.com" in r[0] for r in rows):
-            raise HTTPException(400, "That doesn't look like a cookies.txt file with YouTube cookies in it. Export it "
-                                     "from a browser signed in to YouTube, with an extension such as \"Get cookies.txt LOCALLY\".")
-        text = text if text.startswith("# Netscape") else "# Netscape HTTP Cookie File\n" + text
-        f.write_text(text, encoding="utf-8")
-        with contextlib.suppress(OSError):
-            f.chmod(0o600)
-    media._yt_refused_until = 0.0        # try YouTube again straight away
-    return yt_cookies_get(request)
+    raise HTTPException(400, "Browser-cookie imports are disabled. Upload an authorized video export instead.")
 
 
 @app.post("/api/posts")
