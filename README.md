@@ -1,6 +1,15 @@
 # CLIPFORGE AI · PeakCut rebuild
 
 This repository is the CLIPFORGE adaptation of the MIT-licensed PeakCut project.
+To launch it from a phone, use the button below and choose the **2-core** machine.
+Use only your included Codespaces allowance: keep paid usage blocked at $0, or have no
+payment method on the account. The workspace runs on demand and must keep port 8765 private.
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ronakogX/clipforge-ai-peakcut?quickstart=1)
+
+Setup starts the app and opens its private port automatically. If the browser blocks the new
+tab, open **Ports → 8765 → Open in browser**. The first speech-model download takes several minutes.
+
 **Start with [CLIPFORGE.md](CLIPFORGE.md)** for phone access, private Codespaces setup,
 $0 usage safeguards, verified behavior and current limitations. It adds native 9:16 / 16:9
 export, two synchronized stacked gaming layouts, webcam correction and real output resolutions.

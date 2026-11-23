@@ -1,8 +1,9 @@
 {
   "name": "CLIPFORGE AI · PeakCut",
   "build": { "dockerfile": "Dockerfile" },
+  "hostRequirements": { "cpus": 2, "memory": "8gb", "storage": "16gb" },
   "forwardPorts": [8765],
-  "portsAttributes": { "8765": { "label": "CLIPFORGE AI", "onAutoForward": "notify", "protocol": "http" } },
+  "portsAttributes": { "8765": { "label": "CLIPFORGE AI", "onAutoForward": "openBrowser", "protocol": "http" } },
   "postCreateCommand": "bash tools/codespace-setup.sh",
   "postStartCommand": "bash tools/codespace-start.sh",
   "remoteUser": "vscode"

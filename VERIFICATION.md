@@ -24,7 +24,19 @@ access and browser-cookie imports. Upstream cookie-import expectations were inte
 replaced with assertions that imports are rejected.
 
 `node --check` passes on the extracted web script. Both launcher scripts pass `bash -n`.
-No Docker image or hosted Codespace was built in this environment.
+
+The Codespaces image was also built locally from `python:3.11-slim-bookworm` with FFmpeg,
+fonts and a non-root `vscode` user. The resulting image is 711 MB. The previous full
+devcontainers image exceeded the local Docker storage allocation, so the launch configuration
+uses this smaller image. No hosted Codespace has been created by the agent.
+
+In a disposable container limited to two CPU cores and 4 GiB RAM, the setup script installed
+the pinned requirements, all seven CLIPFORGE regression tests passed, and the real-video
+verification below completed in 18.9 seconds. The model was mounted read-only from the
+previous download; that timing excludes model download and package installation. The startup
+script recovered from a stale PID file, served healthy API responses with the 2 GiB upload
+ceiling, and a second startup reused the running server. The preview URL printed in this
+local simulation was a test value, not an actual hosted address.
 
 ## Real media
 
@@ -78,11 +90,15 @@ be slower or suspend; it is not a latency guarantee.
 
 ## Deployment status and cost
 
-The native rebuild is not deployed. GitHub's connected token rejected `CreateRepository`,
-and its billing API is not accessible through that integration. The browser requires sign-in.
-An empty private `ronakogX/clipforge-ai-peakcut` repository and permission to push are needed
-before publishing. Codespaces paid usage must be blocked at $0 or payment details absent
-before starting a runtime; included allowance has not been verified for this account.
+The source is published at https://github.com/ronakogX/clipforge-ai-peakcut after the owner
+authorized the Codex GitHub App. The source repository is public; no videos, transcripts,
+database files or credentials were committed. Codespaces application ports must remain private.
+
+The native rebuild is not yet running on a hosted Codespace. GitHub rejects Codespaces
+machine-management requests from this integration with HTTP 403, and billing access is
+unavailable. The owner must create the runtime through GitHub's launch page. Paid usage must
+be blocked at $0 or payment details absent before starting; this account's included allowance
+has not been verified. A direct create/resume link is provided in README.md.
 
 No Codespace, paid plan or billable resource was created. Existing Cloudflare and Supabase
 resources were left unchanged. The previous browser app remains available at

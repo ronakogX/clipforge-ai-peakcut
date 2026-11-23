@@ -6,7 +6,13 @@ if [[ -z "${CODESPACE_NAME:-}" ]]; then
   exit 1
 fi
 mkdir -p data
-if [[ -f data/server.pid ]] && kill -0 "$(cat data/server.pid)" 2>/dev/null; then
+if .venv/bin/python - <<'PY' >/dev/null 2>&1
+import json
+import urllib.request
+with urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=2) as response:
+    assert json.load(response).get('ok') is True
+PY
+then
   echo 'CLIPFORGE is already running.'
   exit 0
 fi
@@ -17,7 +23,7 @@ export PEAKCUT_RENDER_WORKERS=1
 export PEAKCUT_MAX_UPLOAD_MB=2048 PEAKCUT_UPLOAD_PART_MB=10 PEAKCUT_MAX_VIDEO_HOURS=12
 export PEAKCUT_UPDATE_CHECK=0 PEAKCUT_FOLLOW_URL=''
 export PEAKCUT_REPO_URL=https://github.com/ronakogX/clipforge-ai-peakcut
-nohup .venv/bin/python -u -m studio.server > data/server.log 2>&1 &
+nohup .venv/bin/python -u -m studio.server >> data/server.log 2>&1 &
 echo "$!" > data/server.pid
 echo "Open port 8765 from the Ports tab: ${PEAKCUT_PUBLIC_URL}/app"
 echo 'Keep port visibility Private. No app account is needed; GitHub protects this private workspace.'
