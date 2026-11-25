@@ -1,6 +1,22 @@
 # CLIPFORGE AI · PeakCut rebuild
 
 This repository is the CLIPFORGE adaptation of the MIT-licensed PeakCut project.
+
+## Colab phone version
+
+[Open the Colab notebook](https://colab.research.google.com/github/ronakogX/clipforge-ai-peakcut/blob/main/notebooks/CLIPFORGE_AI.ipynb)
+using your Google account. No GitHub login or Codespaces setup is required. The notebook
+contains its processor source, provides a Google Drive video picker and crop controls, and
+saves real MP4/SRT exports to Drive. Use **Runtime → Run all**, connect Drive, then use its buttons.
+Speech is English-only in this version; Colab's free runtime availability is limited.
+The source-size ceiling is 2 GiB; an actual 2 GiB mobile transfer has not been verified.
+
+To rebuild the self-contained notebook after code changes: `python tools/build_colab.py`.
+The adapter was tested with real media locally; Google sign-in, Drive mounting and the
+actual Colab browser session still need the owner to run the notebook.
+
+## Codespaces alternative
+
 To launch it from a phone, use the button below and choose the **2-core** machine.
 Use only your included Codespaces allowance: keep paid usage blocked at $0, or have no
 payment method on the account. The workspace runs on demand and must keep port 8765 private.
